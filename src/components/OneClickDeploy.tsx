@@ -13,7 +13,11 @@ import {
   Sparkles,
   ArrowRight,
   Layers,
-  Flame
+  Flame,
+  Key,
+  Info,
+  Smartphone,
+  ClipboardPaste
 } from 'lucide-react';
 import { BotConfig } from '../types';
 import { downloadKaggleNotebook, downloadFullCodebaseZip, getSingleCellKaggleScript } from '../utils/exportUtils';
@@ -27,9 +31,15 @@ export const OneClickDeploy: React.FC<OneClickDeployProps> = ({ config, setConfi
   const [copiedCell, setCopiedCell] = useState(false);
   const [copiedGitCmd, setCopiedGitCmd] = useState(false);
   const [copiedKaggleClone, setCopiedKaggleClone] = useState(false);
+  const [rawEnvText, setRawEnvText] = useState('');
+  const [envParseSuccess, setEnvParseSuccess] = useState(false);
+  const [showRawPaste, setShowRawPaste] = useState(false);
 
   const ghUser = config.githubUsername.trim() || 'YOUR_GITHUB_USERNAME';
   const ghRepo = config.githubRepoName.trim() || 'telegram-dual-t4-userbot';
+
+  const hasCredentials = Boolean(config.apiId && config.apiHash && (config.sessionString || config.botToken));
+  const hasSession = Boolean(config.sessionString && config.sessionString.length > 20);
 
   const gitPushCommand = `# 1. Extract downloaded ZIP or initialize inside project folder
 git init -b main
@@ -60,9 +70,43 @@ git push -u origin main`;
     setTimeout(() => setCopiedKaggleClone(false), 2200);
   };
 
+  // Helper to parse bulk pasted env/config variables
+  const handleParseRawEnv = () => {
+    if (!rawEnvText.trim()) return;
+
+    const newConfig = { ...config };
+    const lines = rawEnvText.split('\n');
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+
+      const equalIdx = trimmed.indexOf('=');
+      if (equalIdx === -1) return;
+
+      const key = trimmed.slice(0, equalIdx).trim().toUpperCase();
+      let val = trimmed.slice(equalIdx + 1).trim();
+      // Remove enclosing quotes
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+
+      if (key === 'API_ID') newConfig.apiId = val;
+      if (key === 'API_HASH') newConfig.apiHash = val;
+      if (key === 'SESSION_STRING' || key === 'STRING_SESSION') newConfig.sessionString = val;
+      if (key === 'BOT_TOKEN') newConfig.botToken = val;
+      if (key === 'OWNER_ID') newConfig.ownerId = val;
+      if (key === 'SUDO_USERS') newConfig.sudoUsers = val;
+    });
+
+    setConfig(newConfig);
+    setEnvParseSuccess(true);
+    setTimeout(() => setEnvParseSuccess(false), 2500);
+  };
+
   return (
     <div className="space-y-8 pb-12 max-w-6xl mx-auto">
-      {/* Hero */}
+      {/* Hero Banner */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 md:p-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 -mt-8 -mr-8 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -90,6 +134,148 @@ git push -u origin main`;
               <span>Open Kaggle Notebook</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Login Explanation Card */}
+      <div className="bg-neutral-900/90 border border-neutral-800 rounded-xl p-6 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2.5 text-white font-semibold text-base">
+            <Key className="w-4.5 h-4.5 text-emerald-400" />
+            <span>How Your Userbot Logs In (Two Easy Methods)</span>
+          </div>
+
+          <div className="text-xs font-mono">
+            {hasSession ? (
+              <span className="text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-2 py-0.5 rounded">
+                ✔ Session String Embedded (Instant 1-Click Login)
+              </span>
+            ) : (
+              <span className="text-amber-400 bg-amber-950/80 border border-amber-800 px-2 py-0.5 rounded">
+                ⚡ Interactive Phone Login in Kaggle (No Prior Setup Required)
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-1">
+          {/* Method 1: Interactive Phone Number Login */}
+          <div className="bg-neutral-950 border border-neutral-800/80 p-4 rounded-lg space-y-2">
+            <div className="flex items-center gap-2 font-semibold text-neutral-200">
+              <Smartphone className="w-4 h-4 text-emerald-400" />
+              <span>Method 1: Interactive Phone Login in Kaggle (Zero Setup)</span>
+            </div>
+            <p className="text-neutral-400 leading-relaxed">
+              If you haven't entered credentials below, that's completely fine! When you run the 1-click script in Kaggle, Pyrogram will simply prompt:
+            </p>
+            <div className="bg-neutral-900 p-2.5 rounded font-mono text-[11px] text-emerald-300 border border-neutral-800">
+              Enter phone number (with country code): +123456789<br/>
+              Enter confirmation code: 12345
+            </div>
+            <p className="text-neutral-500 text-[11px]">
+              Once you enter the code, you are logged in. The bot will automatically print your Session String and assign your Telegram ID as master Owner.
+            </p>
+          </div>
+
+          {/* Method 2: Paste Credentials Here */}
+          <div className="bg-neutral-950 border border-neutral-800/80 p-4 rounded-lg space-y-2">
+            <div className="flex items-center gap-2 font-semibold text-neutral-200">
+              <Sparkles className="w-4 h-4 text-emerald-400" />
+              <span>Method 2: Paste Credentials Below (Pre-Configured)</span>
+            </div>
+            <p className="text-neutral-400 leading-relaxed">
+              Paste your variables in the inputs below (or use the Bulk Paste box). The 1-click runner code automatically embeds your values, so Kaggle boots directly with zero prompts!
+            </p>
+            <button
+              onClick={() => setShowRawPaste(!showRawPaste)}
+              className="text-emerald-400 hover:text-emerald-300 text-xs font-medium flex items-center gap-1 pt-1"
+            >
+              <ClipboardPaste className="w-3.5 h-3.5" />
+              <span>{showRawPaste ? 'Hide Bulk Paste Box' : 'Quick Paste All Variables at Once (.env style)'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Bulk Paste Box (Collapsible) */}
+        {showRawPaste && (
+          <div className="pt-3 border-t border-neutral-800 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-neutral-300 font-medium">Paste your variables block:</span>
+              <button
+                onClick={handleParseRawEnv}
+                className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-semibold rounded text-xs transition-colors"
+              >
+                {envParseSuccess ? '✔ Applied to Config!' : 'Parse & Apply to Config'}
+              </button>
+            </div>
+            <textarea
+              rows={4}
+              placeholder={`API_ID=2040123\nAPI_HASH=b4a1b0239cf2e88a09b43491efc02341\nSESSION_STRING=BQFNJ...\nBOT_TOKEN=7123456789:AAHq_...\nOWNER_ID=123456789`}
+              value={rawEnvText}
+              onChange={(e) => setRawEnvText(e.target.value)}
+              className="w-full px-3 py-2 text-xs font-mono bg-neutral-950 border border-neutral-800 rounded-lg text-white placeholder-neutral-600 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+        )}
+
+        {/* Live Variable Inputs (Direct on this tab) */}
+        <div className="pt-3 border-t border-neutral-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+          <div>
+            <label className="block text-neutral-400 mb-1 font-medium">API_ID</label>
+            <input
+              type="text"
+              placeholder="e.g. 2040123"
+              value={config.apiId}
+              onChange={(e) => setConfig({ ...config, apiId: e.target.value })}
+              className="w-full px-3 py-1.5 bg-neutral-950 border border-neutral-800 rounded-lg text-white font-mono placeholder-neutral-600 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-neutral-400 mb-1 font-medium">API_HASH</label>
+            <input
+              type="text"
+              placeholder="e.g. b4a1b0239cf2e88a09b43491efc02341"
+              value={config.apiHash}
+              onChange={(e) => setConfig({ ...config, apiHash: e.target.value })}
+              className="w-full px-3 py-1.5 bg-neutral-950 border border-neutral-800 rounded-lg text-white font-mono placeholder-neutral-600 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-neutral-400 mb-1 font-medium">BOT_TOKEN (from @BotFather)</label>
+            <input
+              type="text"
+              placeholder="7123456789:AAHq_..."
+              value={config.botToken}
+              onChange={(e) => setConfig({ ...config, botToken: e.target.value })}
+              className="w-full px-3 py-1.5 bg-neutral-950 border border-neutral-800 rounded-lg text-white font-mono placeholder-neutral-600 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-neutral-400 mb-1 font-medium">
+              SESSION_STRING (Leave empty for interactive Kaggle login)
+            </label>
+            <input
+              type="text"
+              placeholder="BQFNJ... (optional)"
+              value={config.sessionString}
+              onChange={(e) => setConfig({ ...config, sessionString: e.target.value })}
+              className="w-full px-3 py-1.5 bg-neutral-950 border border-neutral-800 rounded-lg text-white font-mono placeholder-neutral-600 focus:outline-none focus:border-emerald-500 truncate"
+            />
+          </div>
+
+          <div>
+            <label className="block text-neutral-400 mb-1 font-medium">OWNER_ID (Auto-detected if empty)</label>
+            <input
+              type="text"
+              placeholder="e.g. 123456789"
+              value={config.ownerId}
+              onChange={(e) => setConfig({ ...config, ownerId: e.target.value })}
+              className="w-full px-3 py-1.5 bg-neutral-950 border border-neutral-800 rounded-lg text-white font-mono placeholder-neutral-600 focus:outline-none focus:border-emerald-500"
+            />
           </div>
         </div>
       </div>
@@ -129,7 +315,7 @@ git push -u origin main`;
         </div>
       </div>
 
-      {/* 3 Deployment Methods Grid */}
+      {/* 2 Main Deployment Options */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Method 1: The Fastest 1-Cell Kaggle Runner */}
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6 space-y-5 flex flex-col justify-between">

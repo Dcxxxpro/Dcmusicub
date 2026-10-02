@@ -50,8 +50,16 @@ except ImportError:
         return os.getenv(key, default)
 
 # Telegram API Credentials (from https://my.telegram.org)
-API_ID = int(get_secret("API_ID", "${apiIdVal === 'YOUR_API_ID' ? '2040' : apiIdVal}"))
-API_HASH = get_secret("API_HASH", "${apiHashVal}")
+raw_api_id = get_secret("API_ID", "${apiIdVal}")
+raw_api_hash = get_secret("API_HASH", "${apiHashVal}")
+
+if not raw_api_id or raw_api_id == "YOUR_API_ID":
+    raw_api_id = "2040"
+if not raw_api_hash or raw_api_hash == "YOUR_API_HASH":
+    raw_api_hash = "b4a1b0239cf2e88a09b43491efc02341"
+
+API_ID = int(raw_api_id) if str(raw_api_id).isdigit() else 2040
+API_HASH = raw_api_hash
 
 # Pyrogram String Session for the Userbot account
 SESSION_STRING = get_secret("SESSION_STRING", "${sessionVal}")
@@ -60,9 +68,10 @@ SESSION_STRING = get_secret("SESSION_STRING", "${sessionVal}")
 BOT_TOKEN = get_secret("BOT_TOKEN", "${botTokenVal}")
 
 # Sudo & Ownership Permissions
-OWNER_ID = int(get_secret("OWNER_ID", "${ownerIdVal}"))
+raw_owner = get_secret("OWNER_ID", "${ownerIdVal}")
+OWNER_ID = int(raw_owner) if raw_owner and str(raw_owner).isdigit() else 0
 raw_sudos = get_secret("SUDO_USERS", "${sudoUsersVal}")
-SUDO_USERS = set([OWNER_ID])
+SUDO_USERS = set([OWNER_ID]) if OWNER_ID else set()
 if raw_sudos:
     for uid in raw_sudos.split(","):
         uid = uid.strip()
@@ -120,22 +129,34 @@ logging.basicConfig(
 logger = logging.getLogger("UserbotEngine")
 
 # Initialize User Client (Userbot)
-user = Client(
-    name="kaggle_userbot",
-    api_id=config.API_ID,
-    api_hash=config.API_HASH,
-    session_string=config.SESSION_STRING,
-    plugins=dict(root="plugins")
-)
+user_kwargs = {
+    "name": "/kaggle/working/kaggle_userbot" if os.path.exists("/kaggle/working") else "kaggle_userbot",
+    "api_id": config.API_ID,
+    "api_hash": config.API_HASH,
+    "plugins": dict(root="plugins")
+}
 
-# Initialize Companion Assistant Bot (for Inline Buttons & Callbacks)
-bot = Client(
-    name="kaggle_assistant_bot",
-    api_id=config.API_ID,
-    api_hash=config.API_HASH,
-    bot_token=config.BOT_TOKEN,
-    plugins=dict(root="plugins")
-)
+# Use session string if available and not a placeholder; otherwise Pyrogram prompts interactively in Kaggle!
+if config.SESSION_STRING and not config.SESSION_STRING.startswith("YOUR_") and len(config.SESSION_STRING) > 20:
+    user_kwargs["session_string"] = config.SESSION_STRING
+    logger.info("Using provided SESSION_STRING for authentication.")
+else:
+    logger.info("No SESSION_STRING provided. Userbot will authenticate interactively via phone number in Kaggle console.")
+
+user = Client(**user_kwargs)
+
+# Initialize Companion Assistant Bot (for Inline Buttons & Callbacks) if token provided
+bot = None
+if config.BOT_TOKEN and not config.BOT_TOKEN.startswith("YOUR_") and ":" in config.BOT_TOKEN:
+    bot = Client(
+        name="kaggle_assistant_bot",
+        api_id=config.API_ID,
+        api_hash=config.API_HASH,
+        bot_token=config.BOT_TOKEN,
+        plugins=dict(root="plugins")
+    )
+else:
+    logger.info("No BOT_TOKEN provided. Companion inline buttons bot mode will be disabled (Userbot commands still fully functional).")
 
 # Initialize PyTgCalls with Custom FFmpeg & GPU Transcoding Engine
 call_py = PyTgCalls(user)
@@ -167,21 +188,42 @@ async def main():
     gpu_status = verify_dual_t4_environment()
     logger.info(f"GPU Environment Verification: {gpu_status['summary']}")
     
-    # 2. Start Companion Assistant Bot (Enables Inline Buttons)
-    logger.info("Starting Assistant Bot for Inline Keyboard Support...")
-    await bot.start()
-    bot_info = await bot.get_me()
-    logger.info(f"Assistant Bot started as @{bot_info.username}")
+    # 2. Start Companion Assistant Bot if configured
+    if bot:
+        try:
+            logger.info("Starting Assistant Bot for Inline Keyboard Support...")
+            await bot.start()
+            bot_info = await bot.get_me()
+            logger.info(f"Assistant Bot started as @{bot_info.username}")
+        except Exception as e:
+            logger.warning(f"Assistant Bot failed to start: {e}")
     
-    # 3. Start Userbot Client
+    # 3. Start Userbot Client (Will prompt for phone number and Telegram code if not already logged in!)
     logger.info("Starting Userbot Client...")
     await user.start()
     user_info = await user.get_me()
     logger.info(f"Userbot started successfully as {user_info.first_name} [ID: {user_info.id}]")
     
+    # Auto-assign master owner if not explicitly provided
+    if not config.OWNER_ID or config.OWNER_ID == 0:
+        config.OWNER_ID = user_info.id
+        config.SUDO_USERS.add(user_info.id)
+        logger.info(f"Auto-configured master OWNER_ID: {user_info.id}")
+    
+    # Export and print session string so the user can easily copy and reuse it
+    try:
+        exported_session = await user.export_session_string()
+        print("\\n" + "="*70)
+        print("🔑 YOUR PYROGRAM STRING SESSION (Copy & save this for 1-click runs!):")
+        print(exported_session)
+        print("="*70 + "\\n")
+    except Exception:
+        pass
+    
     # Share clients across modules
     user.bot = bot
-    bot.user = user
+    if bot:
+        bot.user = user
     user.call_py = call_py
     
     # 4. Start PyTgCalls Voice Chat Engine
