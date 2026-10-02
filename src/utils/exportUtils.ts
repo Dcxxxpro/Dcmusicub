@@ -91,7 +91,7 @@ export const getSingleCellKaggleScript = (config: BotConfig): string => {
     `print("⚡ Step 2: Installing Dependencies & FFmpeg...")`,
     `subprocess.run(["apt-get", "update", "-qq"])`,
     `subprocess.run(["apt-get", "install", "-y", "-qq", "ffmpeg", "curl"])`,
-    `subprocess.run([sys.executable, "-m", "pip", "install", "-q", "pyrogram>=2.0.106", "tgcrypto>=1.2.5", "pytgcalls>=1.0.5", "yt-dlp>=2024.08.06", "aiohttp>=3.9.5", "aiofiles>=23.2.1", "psutil"])`,
+    `subprocess.run([sys.executable, "-m", "pip", "install", "-q", "pyrogram>=2.0.106", "tgcrypto>=1.2.5", "pytgcalls==1.0.5", "yt-dlp>=2024.08.06", "aiohttp>=3.9.5", "psutil"])`,
     ``,
     `print("⚡ Step 3: Writing Userbot Source Code Files...")`,
   ];

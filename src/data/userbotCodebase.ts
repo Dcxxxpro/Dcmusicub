@@ -1167,7 +1167,7 @@ async def cmd_video(client: Client, message: Message):
       description: 'Python package dependencies with pinned versions',
       content: `pyrogram>=2.0.106
 tgcrypto>=1.2.5
-pytgcalls>=1.0.5
+pytgcalls==1.0.5
 yt-dlp>=2024.08.06
 aiohttp>=3.9.5
 aiofiles>=23.2.1
