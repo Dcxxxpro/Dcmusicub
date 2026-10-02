@@ -1,0 +1,6 @@
+{
+  "name": "Kaggle Dual-T4 Telegram Userbot Engine",
+  "description": "Production-grade Telegram Userbot architected for Kaggle 2x NVIDIA T4 GPU acceleration with PyTgCalls YouTube video/audio voice chat streaming, interactive inline button controls, and sudo administration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
