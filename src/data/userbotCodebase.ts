@@ -11,8 +11,8 @@ export const getDefaultConfig = (): BotConfig => ({
   enableDualGpu: true,
   enableWhisper: true,
   keepAlivePort: 8080,
-  githubUsername: '',
-  githubRepoName: 'telegram-dual-t4-userbot',
+  githubUsername: 'Dcxxxpro',
+  githubRepoName: 'Dcmusicub',
 });
 
 export const getUserbotCodebase = (config: BotConfig): CodeFile[] => {

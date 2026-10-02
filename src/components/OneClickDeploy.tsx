@@ -50,7 +50,44 @@ git commit -m "feat: initialize Kaggle Dual-T4 Telegram userbot with PyTgCalls N
 git remote add origin https://github.com/${ghUser}/${ghRepo}.git
 git push -u origin main`;
 
-  const kaggleCloneScript = `!git clone https://github.com/${ghUser}/${ghRepo}.git userbot && cd userbot && bash setup.sh && python main.py`;
+  const kaggleCloneScript = `# ==============================================================================
+# 🚀 BULLETPROOF KAGGLE 2X T4 RUNNER FOR: ${ghUser}/${ghRepo}
+# Auto-detects main.py even if uploaded in a subfolder!
+# ==============================================================================
+import os, sys, glob, shutil, subprocess
+
+print("⚡ [1/4] Checking Dual Tesla T4 GPUs...")
+subprocess.run(["nvidia-smi"])
+
+print("⚡ [2/4] Installing FFmpeg with CUDA & System Packages...")
+subprocess.run(["apt-get", "update", "-qq"])
+subprocess.run(["apt-get", "install", "-y", "-qq", "ffmpeg", "git", "curl"])
+
+print("⚡ [3/4] Cloning https://github.com/${ghUser}/${ghRepo}.git...")
+os.chdir("/kaggle/working")
+if os.path.exists("userbot"):
+    shutil.rmtree("userbot")
+
+subprocess.run(["git", "clone", "https://github.com/${ghUser}/${ghRepo}.git", "userbot"])
+
+# Automatically find where main.py is (handles subfolders or root)
+main_matches = glob.glob("/kaggle/working/userbot/**/main.py", recursive=True)
+if main_matches:
+    code_dir = os.path.dirname(main_matches[0])
+    print(f"✔ Found Userbot in: {code_dir}")
+    os.chdir(code_dir)
+else:
+    print("Warning: locating userbot directory...")
+    os.chdir("/kaggle/working/userbot")
+
+# Install requirements with fallback
+if os.path.exists("requirements.txt"):
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-r", "requirements.txt"])
+else:
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "pyrogram>=2.0.106", "tgcrypto>=1.2.5", "pytgcalls>=1.0.5", "yt-dlp>=2024.08.06", "aiohttp>=3.9.5", "aiofiles>=23.2.1", "psutil"])
+
+print("⚡ [4/4] Starting Userbot Engine on 2x Tesla T4...")
+subprocess.run([sys.executable, "main.py"])`;
 
   const handleCopyCell = () => {
     navigator.clipboard.writeText(getSingleCellKaggleScript(config));
@@ -421,18 +458,21 @@ git push -u origin main`;
               <span>Download Ready-to-Push GitHub Repo (.ZIP)</span>
             </button>
 
-            {/* 1-Line Kaggle Clone */}
-            <div className="bg-neutral-950/80 border border-neutral-800 rounded-lg p-2.5 flex items-center justify-between gap-2">
-              <div className="truncate font-mono text-[11px] text-neutral-400">
-                {kaggleCloneScript}
+            {/* 1-Click Kaggle Clone Block */}
+            <div className="bg-neutral-950 border border-neutral-800 rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-300 font-medium text-xs">Run from your GitHub repo in Kaggle:</span>
+                <button
+                  onClick={handleCopyKaggleClone}
+                  className="px-2.5 py-1 text-xs bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold rounded shrink-0 flex items-center gap-1 transition-colors"
+                >
+                  {copiedKaggleClone ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedKaggleClone ? 'Copied Script!' : 'Copy Kaggle Script'}</span>
+                </button>
               </div>
-              <button
-                onClick={handleCopyKaggleClone}
-                className="px-2.5 py-1 text-xs bg-neutral-800 hover:bg-neutral-700 text-white rounded shrink-0 border border-neutral-700 flex items-center gap-1"
-              >
-                {copiedKaggleClone ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                <span>{copiedKaggleClone ? 'Copied' : 'Copy'}</span>
-              </button>
+              <pre className="text-[11px] font-mono text-emerald-300/90 whitespace-pre-wrap bg-neutral-900/70 p-2 rounded border border-neutral-800/80 overflow-x-auto">
+                {kaggleCloneScript}
+              </pre>
             </div>
           </div>
         </div>
